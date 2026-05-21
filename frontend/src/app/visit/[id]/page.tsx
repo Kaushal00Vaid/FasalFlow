@@ -49,14 +49,14 @@ export default function VisitDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 pb-24">
+    <div className="min-h-screen bg-neutral-950 pb-24 md:pb-8">
       {/* Header section */}
       <div className="relative overflow-hidden bg-neutral-900 border-b border-neutral-800">
         <div className="absolute top-0 right-0 p-8 opacity-5">
           <Store className="w-32 h-32" />
         </div>
         
-        <div className="px-6 pt-6 pb-8 relative z-10">
+        <div className="px-6 md:px-8 py-8 max-w-7xl mx-auto relative z-10">
           <Link href="/plan" className="inline-flex items-center text-neutral-400 hover:text-emerald-400 mb-6 transition-colors">
             <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center mr-3 border border-neutral-700">
               <ArrowLeft className="w-4 h-4" />
@@ -81,31 +81,39 @@ export default function VisitDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
-      <main className="p-6 space-y-8">
-        {/* Recommendation Section */}
-        <section>
-          <div className="bg-gradient-to-br from-emerald-900/40 to-emerald-950/40 border border-emerald-500/30 rounded-2xl p-5 shadow-lg shadow-emerald-900/20 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
-            <h3 className="text-emerald-400 text-xs font-bold tracking-widest uppercase mb-1">Recommended Action</h3>
-            <p className="text-lg font-medium text-white mb-2">{visit.recommended_action}</p>
-            <p className="text-emerald-200/70 text-sm leading-relaxed">{visit.one_line_why}</p>
+      <main className="p-6 md:p-8 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+          {/* Left Column */}
+          <div className="lg:col-span-2 space-y-6 md:space-y-8">
+            {/* Recommendation Section */}
+            <section>
+              <div className="bg-gradient-to-br from-emerald-900/40 to-emerald-950/40 border border-emerald-500/30 rounded-2xl p-6 shadow-lg shadow-emerald-900/20 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
+                <h3 className="text-emerald-400 text-xs font-bold tracking-widest uppercase mb-1">Recommended Action</h3>
+                <p className="text-lg font-medium text-white mb-2">{visit.recommended_action}</p>
+                <p className="text-emerald-200/70 text-sm leading-relaxed">{visit.one_line_why}</p>
+              </div>
+            </section>
+
+            {/* Explainability Section */}
+            <section>
+              <ReasonCard reasons={visit.reasons} />
+            </section>
           </div>
-        </section>
 
-        {/* Explainability Section */}
-        <section>
-          <ReasonCard reasons={visit.reasons} />
-        </section>
-
-        {/* Action Section */}
-        <section className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5">
-          <OutcomeLogger 
-            repId="REP_0001" 
-            retailerId={visit.retailer_id} 
-            date={new Date().toISOString().split("T")[0]} 
-            recommendedSku={visit.recommended_sku_id} 
-          />
-        </section>
+          {/* Right Column */}
+          <div className="space-y-6 md:space-y-8">
+            {/* Action Section */}
+            <section className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
+              <OutcomeLogger 
+                repId="REP_0001" 
+                retailerId={visit.retailer_id} 
+                date={new Date().toISOString().split("T")[0]} 
+                recommendedSku={visit.recommended_sku_id} 
+              />
+            </section>
+          </div>
+        </div>
       </main>
     </div>
   );

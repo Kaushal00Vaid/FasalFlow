@@ -70,15 +70,15 @@ export default function SyncPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 pb-20">
+    <div className="min-h-screen bg-neutral-950 pb-20 md:pb-8">
       <header className="bg-neutral-900 border-b border-neutral-800 sticky top-0 z-40">
-        <div className="px-4 py-6">
+        <div className="px-4 md:px-8 py-6 max-w-7xl mx-auto">
           <h1 className="text-2xl font-semibold text-emerald-50 mb-1">Data Sync</h1>
           <p className="text-neutral-400 text-sm">Manage offline visits and server synchronization</p>
         </div>
       </header>
 
-      <main className="p-4 pt-6 space-y-8">
+      <main className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
         {/* Offline Queue Section */}
         <section>
           <div className="flex justify-between items-end mb-4">

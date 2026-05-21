@@ -38,7 +38,7 @@ export function PlanList({ visits }: PlanListProps) {
       variants={container}
       initial="hidden"
       animate="show"
-      className="space-y-4 pb-24"
+      className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 pb-24 md:pb-8"
     >
       {visits.map((visit, index) => {
         // Map score 0-1 to a color urgency

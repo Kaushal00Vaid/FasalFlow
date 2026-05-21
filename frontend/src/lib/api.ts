@@ -51,6 +51,11 @@ export const fetchDailyPlan = async (repId: string, date: string, topN: number =
   return data;
 };
 
+export const fetchWeeks = async () => {
+  const { data } = await api.get('/weeks');
+  return data;
+};
+
 export const fetchVisitDetail = async (retailerId: string, date: string) => {
   const { data } = await api.get(`/visit/${retailerId}/detail?date=${date}`);
   return data;

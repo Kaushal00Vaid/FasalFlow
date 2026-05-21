@@ -217,6 +217,12 @@ def get_rep(rep_id: str):
     )
 
 
+@app.get("/weeks")
+def get_weeks():
+    weeks = sorted(state.master["week_end_date"].unique())
+    return [str(pd.Timestamp(w).date()) for w in weeks]
+
+
 @app.get("/plan/today", response_model=DayPlan)
 def plan_today(
     rep_id: str,
@@ -226,9 +232,20 @@ def plan_today(
 ):
     scorer = state.scorer_with_ml if use_ml else state.scorer
     try:
-        recs = scorer.plan_day(rep_id=rep_id, as_of_date=date, top_n=top_n)
+        recs = scorer.plan_day(rep_id=rep_id, as_of_date=date, top_n=50)
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.execute(
+        "SELECT DISTINCT retailer_id FROM outcomes WHERE rep_id=? AND visit_date=?",
+        (rep_id, date)
+    )
+    visited_retailers = {r[0] for r in cur.fetchall()}
+    conn.close()
+
+    recs = [r for r in recs if r.retailer_id not in visited_retailers]
+    recs = recs[:top_n]
 
     # Resolve the snapped week_end_date the scorer used (for transparency)
     as_of = pd.Timestamp(date)
