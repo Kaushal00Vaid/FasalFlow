@@ -80,3 +80,14 @@ FasalFlow/
 └── SUBMISSION.md
 └── .gitignore
 ```
+
+
+## Contributors
+
+* Sagandeep Kaur
+* Kaushal Vaid
+* Prakhar Arora
+* Pulkit Mangal
+* Kshitij Maheshwari
+* Vaibhwee
+* Swati Singh
