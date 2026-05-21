@@ -84,10 +84,23 @@ FasalFlow/
 
 ## Contributors
 
-* Sagandeep Kaur
-* Kaushal Vaid
-* Prakhar Arora
-* Pulkit Mangal
-* Kshitij Maheshwari
-* Vaibhwee
-* Swati Singh
+* Sagandeep Kaur – Frontend Development & UI Implementation
+> Led the frontend development and user interface implementation of the project. This involved designing responsive interfaces, integrating frontend components with backend services, optimizing user experience, managing state and workflows, and ensuring the application remained intuitive, visually appealing, and highly interactive across devices.
+
+* Kaushal Vaid – Backend Development
+> Responsible for developing and managing the backend architecture of the project. This included designing APIs, implementing business logic, managing databases, handling authentication and authorization, integrating third-party services, and ensuring scalability, security, and performance of the server-side infrastructure.
+
+* Prakhar Arora – Scripting & Workflow Automation
+> He was responsible for designing and writing the core scripts that streamlined multiple development and operational workflows. This included automation scripts, utility scripts, execution pipelines, and process orchestration logic that improved efficiency, reduced manual intervention, and ensured smoother integration between different modules of the system.
+
+* Pulkit Mangal – Ideation, Research & Model Building
+> Pulkit contributed to the conceptualization and technical ideation of the project. He played a key role in brainstorming solution approaches, designing workflows, selecting suitable methodologies, and building the core models powering the application. His work involved experimentation, validation, optimization, and structuring the model architecture to align with the project objectives.
+
+* Kshitij Maheshwari - Deployment & Infrastructure Management
+> Handled the deployment architecture and infrastructure setup for the project, ensuring the application was production-ready and scalable. This included configuring hosting environments, managing deployment pipelines, handling environment variables and server configurations, optimizing runtime performance, and ensuring smooth end-to-end deployment across services.
+
+* Vaibhwee - Video Production & Documentation
+> Vaibhwee handled the complete video creation and documentation process for the project. This included preparing walkthrough videos, recording demonstrations, editing presentation content, and ensuring the project flow was easy to understand for both technical and non-technical audiences.
+
+* Swati Singh - CI/CD Workflow Implementation
+> Swati designed and implemented the complete CI/CD pipeline for the project. This involved configuring automated build processes, testing workflows, deployment pipelines, environment validation, and continuous integration mechanisms to ensure reliable and scalable software delivery.
