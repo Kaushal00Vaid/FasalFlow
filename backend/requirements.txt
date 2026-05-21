@@ -9,4 +9,4 @@ pyarrow>=14.0,<25          # needed at runtime for pd.read_parquet
 xgboost-cpu>=2.0,<4         # CPU-only build; unpickles xgboost-trained model
 fastapi>=0.110
 uvicorn>=0.27               # no [standard] — drops uvloop/httptools/watchfiles/websockets
-pydantic>=2.0 (edited)
+pydantic>=2.0
