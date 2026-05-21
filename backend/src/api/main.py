@@ -70,9 +70,9 @@ async def lifespan(app: FastAPI):
         state.scorer_with_ml = state.scorer
     with open(ART / "anomalies.json") as f:
         state.anomalies = json.load(f)
-    state.master = pd.read_parquet(PROC / "features_master.parquet")
-    state.dim_retailers = pd.read_parquet(PROC / "dim_retailers.parquet")
-    state.dim_reps = pd.read_parquet(PROC / "dim_reps.parquet")
+    state.master = _load_parquet_low_mem(PROC / "features_master.parquet")
+    state.dim_retailers = _load_parquet_low_mem(PROC / "dim_retailers.parquet")
+    state.dim_reps = _load_parquet_low_mem(PROC / "dim_reps.parquet")
     _init_outcomes_db()
     log.info(f"Ready. {len(state.master):,} feature rows, {len(state.anomalies):,} anomalies.")
     yield
@@ -92,6 +92,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _load_parquet_low_mem(path: Path) -> pd.DataFrame:
+    """Read parquet with the lowest peak memory we can manage.
+
+    pd.read_parquet keeps both the Arrow table and the resulting pandas
+    DataFrame alive during conversion (~2x peak). On Render's 512 MB free
+    tier this OOMs on the 310k-row features_master file. Using pyarrow
+    directly with self_destruct lets pyarrow free the table chunk-by-chunk
+    as it builds the DataFrame.
+    """
+    import pyarrow.parquet as pq
+    table = pq.read_table(path)
+    df = table.to_pandas(split_blocks=True, self_destruct=True)
+    del table
+    for col in df.select_dtypes(include="integer").columns:
+        df[col] = pd.to_numeric(df[col], downcast="integer")
+    for col in df.select_dtypes(include="float").columns:
+        df[col] = pd.to_numeric(df[col], downcast="float")
+    return df
 
 
 def _init_outcomes_db():
