@@ -84,3 +84,14 @@ export const logOutcome = async (payload: {
   const { data } = await api.post('/outcome', payload);
   return data;
 };
+
+export interface PitchResponse {
+  pitch: string;
+  translation?: string;
+  source: 'gemini' | 'template';
+}
+
+export const fetchVisitPitch = async (retailerId: string, date: string, lang: string): Promise<PitchResponse> => {
+  const { data } = await api.get(`/visit/${retailerId}/pitch?date=${date}&lang=${lang}`);
+  return data;
+};

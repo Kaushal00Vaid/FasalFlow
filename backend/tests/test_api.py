@@ -127,3 +127,18 @@ def test_invalid_outcome_value(client):
         },
     )
     assert r.status_code == 422  # pydantic validation error
+
+
+def test_visit_pitch(client):
+    """Test the vernacular pitch generator returns both target pitch and fallback."""
+    r = client.get("/visit/RTL_00001/pitch", params={"date": "2026-02-15", "lang": "Hindi"})
+    assert r.status_code == 200
+    d = r.json()
+    assert "pitch" in d
+    assert "source" in d
+    assert d["source"] in ["gemini", "template"]
+    if d["source"] == "template":
+        # check that Hindi template pitch is returned
+        assert "नमस्ते" in d["pitch"] or "नमस्कार" in d["pitch"]
+        assert d["translation"] is not None
+
