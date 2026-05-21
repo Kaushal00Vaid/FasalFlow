@@ -2,3 +2,5 @@ requirements.txt
 .env
 venv/
 node_modules/
+
+ThingsToDo.txt
