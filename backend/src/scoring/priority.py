@@ -147,11 +147,21 @@ def pick_recommended_sku(retailer_skus: pd.DataFrame, dominant_crop: str) -> tup
 # Main scoring entry point
 # ---------------------------------------------------------------------------
 class PriorityScorer:
-    def __init__(self, weights: dict[str, float] | None = None, conversion_model=None):
+    def __init__(
+        self,
+        weights: dict[str, float] | None = None,
+        conversion_model=None,
+        master: pd.DataFrame | None = None,
+        dim_retailers: pd.DataFrame | None = None,
+    ):
         self.weights = weights or DEFAULT_WEIGHTS
         assert abs(sum(self.weights.values()) - 1.0) < 1e-6, "Weights must sum to 1.0"
-        self.master = pd.read_parquet(PROC / "features_master.parquet")
-        self.dim_retailers = pd.read_parquet(PROC / "dim_retailers.parquet")
+        # Accept shared frames from the caller to avoid duplicate copies in memory.
+        # Falls back to loading from disk for standalone / CLI use.
+        self.master = master if master is not None else pd.read_parquet(PROC / "features_master.parquet")
+        self.dim_retailers = (
+            dim_retailers if dim_retailers is not None else pd.read_parquet(PROC / "dim_retailers.parquet")
+        )
         self.conversion_model = conversion_model  # optional, sklearn-style .predict_proba
 
     def score_retailer(self, retailer_slice: pd.DataFrame) -> tuple[float, list[ReasonFact], dict]:
