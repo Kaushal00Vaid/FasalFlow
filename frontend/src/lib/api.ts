@@ -37,13 +37,18 @@ export interface DailyPlanResponse {
 }
 
 export interface Anomaly {
-  retailer_id?: string;
+  week_end_date: string;
   district: string;
   sku_id: string;
-  anomaly_type: 'demand_spike' | 'demand_drop' | 'stockout_risk';
-  severity: 'high' | 'medium' | 'low';
-  description: string;
-  detected_at: string;
+  sku_name: string;
+  kind: 'demand_spike' | 'demand_drop' | 'stockout_risk';
+  severity: number;
+  z_score: number | null;
+  current_value: number;
+  baseline_value: number;
+  explanation: string;
+  affected_retailers: string[];
+  affected_reps: string[];
 }
 
 export const fetchDailyPlan = async (repId: string, date: string, topN: number = 7): Promise<DailyPlanResponse> => {
