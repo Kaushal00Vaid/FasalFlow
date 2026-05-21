@@ -18,11 +18,13 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
+import httpx
 import pandas as pd
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query
@@ -170,6 +172,12 @@ class OutcomeIn(BaseModel):
     offline_queued_at: str | None = None  # client-side timestamp when offline
 
 
+class PitchResp(BaseModel):
+    pitch: str
+    translation: str | None = None
+    source: Literal["gemini", "template"]
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -227,7 +235,7 @@ def get_weeks():
 def plan_today(
     rep_id: str,
     date: str = Query(..., description="ISO date, e.g. 2026-02-15"),
-    top_n: int = Query(8, ge=1, le=25),
+    top_n: int = Query(8, ge=1, le=100),
     use_ml: bool = Query(True, description="Use ML conversion model in scoring"),
 ):
     scorer = state.scorer_with_ml if use_ml else state.scorer
@@ -291,6 +299,10 @@ def visit_detail(retailer_id: str, date: str = Query(...)):
 
     score, reasons, sku_pick = state.scorer_with_ml.score_retailer(slice_df)
 
+    # Compute action text and one-liner expected by the frontend contract
+    action_text = state.scorer_with_ml._action_text(sku_pick, reasons)
+    one_line = state.scorer_with_ml._one_line_summary(reasons, sku_pick)
+
     # Inventory snapshot for all 12 SKUs
     inventory = [
         {
@@ -312,6 +324,10 @@ def visit_detail(retailer_id: str, date: str = Query(...)):
         "score": round(score, 4),
         "reasons": [r.__dict__ for r in reasons],
         "recommended": sku_pick,
+        "recommended_sku": sku_pick.get("sku_name", ""),
+        "recommended_sku_id": sku_pick.get("sku_id", ""),
+        "recommended_action": action_text,
+        "one_line_why": one_line,
         "inventory": inventory,
         "stage_signal": {
             "dominant_crop": row0["dominant_crop"],
@@ -322,6 +338,108 @@ def visit_detail(retailer_id: str, date: str = Query(...)):
         },
         "visit_history": {"days_since_last_visit": int(row0["days_since_last_visit"])},
     }
+
+
+@app.get("/visit/{retailer_id}/pitch", response_model=PitchResp)
+async def visit_pitch(
+    retailer_id: str,
+    date: str = Query(..., description="ISO date, e.g. 2026-02-15"),
+    lang: str = Query("English", description="Target language (English, Hindi, Tamil, Telugu, Marathi)"),
+    api_key: str | None = Query(None, description="Optional Gemini API key")
+):
+    as_of = pd.Timestamp(date)
+    weeks = sorted(state.master["week_end_date"].unique())
+    eligible = [w for w in weeks if pd.Timestamp(w) <= as_of]
+    if not eligible:
+        raise HTTPException(400, f"No data on or before {as_of}")
+    week_end = max(eligible)
+
+    slice_df = state.master[
+        (state.master["retailer_id"] == retailer_id) & (state.master["week_end_date"] == week_end)
+    ]
+    if slice_df.empty:
+        raise HTTPException(404, f"No data for {retailer_id} on {week_end}")
+
+    score, reasons, sku_pick = state.scorer_with_ml.score_retailer(slice_df)
+    sku_name = sku_pick.get("sku_name", "core product")
+    sku_id = sku_pick.get("sku_id", "")
+    crop = sku_pick.get("crop", "crop")
+
+    reasons_text = "\n".join([f"- {r.label}: {r.value}" for r in reasons[:3]])
+
+    gemini_key = api_key or os.environ.get("GEMINI_API_KEY")
+
+    if gemini_key:
+        try:
+            prompt = (
+                f"You are an expert Syngenta agronomy consultant helping a sales representative pitch a crop protection product to a retailer in rural India.\n"
+                f"Generate a highly persuasive, conversation-starting sales pitch in the local language: {lang}.\n\n"
+                f"Context:\n"
+                f"- Retailer: {retailer_id}\n"
+                f"- Recommended SKU to push: {sku_name} (ID: {sku_id})\n"
+                f"- Crop focus in this tehsil: {crop}\n"
+                f"- Key reasons for urgency:\n{reasons_text}\n\n"
+                f"Instructions:\n"
+                f"1. Start with a warm local greeting (e.g. Namaste in Hindi, Vanakkam in Tamil, etc.).\n"
+                f"2. Connect the pitch to the current crop growth stage or local weather trends in the reasons.\n"
+                f"3. Call out the inventory stock risk for {sku_name} to motivate them to place an order.\n"
+                f"4. Mention key benefits of {sku_name} in simple terms.\n"
+                f"5. Translate the pitch into {lang} (use natural conversational phrasing, not overly formal). If lang is English, write it in English.\n"
+                f"6. Provide a translation or a brief summary in English under a '---' separator so the rep can understand it too.\n"
+                f"Keep the pitch brief, actionable, and natural. Do NOT use markdown bold/italics markers inside the pitch itself."
+            )
+
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": prompt}
+                        ]
+                    }
+                ],
+                "generationConfig": {
+                    "temperature": 0.3,
+                    "maxOutputTokens": 400
+                }
+            }
+
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(url, json=payload, timeout=8.0)
+                if resp.status_code == 200:
+                    resp_json = resp.json()
+                    text = resp_json["candidates"][0]["content"]["parts"][0]["text"].strip()
+                    if "---" in text:
+                        parts = text.split("---", 1)
+                        pitch_text = parts[0].strip()
+                        translation_text = parts[1].strip()
+                    else:
+                        pitch_text = text
+                        translation_text = "Translation was not explicitly separated by Gemini."
+                    return PitchResp(
+                        pitch=pitch_text,
+                        translation=translation_text,
+                        source="gemini"
+                    )
+        except Exception as e:
+            log.error(f"Failed calling Gemini API: {e}. Falling back to template.")
+
+    templates = {
+        "Hindi": f"नमस्ते! आपके लिए एक बहुत ज़रूरी अपडेट है। इस सप्ताह आपके तहसील में {crop} के किसानों के यहाँ फसलों की वृद्धि महत्वपूर्ण चरण पर है। हमारे पास विशेष रूप से फसल सुरक्षा के लिए सबसे असरदार उत्पाद {sku_name} उपलब्ध है। आपके पास इसका स्टॉक ख़त्म होने का ख़तरा है, इसलिए आज ही ऑर्डर बुक करें ताकि आप किसानों की माँग समय पर पूरी कर सकें।",
+        "Tamil": f"வணக்கம்! ஒரு முக்கியமான செய்தி. இந்த வாரம் உங்கள் பகுதியில் உள்ள {crop} விவசாயிகளுக்கு பயிர் பாதுகாப்பு மிகவும் முக்கிய தேவையாக உள்ளது. அதற்காக எங்களிடம் சிறந்த தயாரிப்பான {sku_name} உள்ளது. உங்கள் கடையில் இதன் இருப்பு மிகக் குறைவாக உள்ளதால், விவசாயிகளின் தேவையை உடனடியாக பூர்த்தி செய்ய இன்றே ஆர்டர் செய்யுங்கள்.",
+        "Telugu": f"నమస్కారం! ఒక ముఖ్యమైన అప్‌డేట్. ఈ వారం మీ ప్రాంతంలో {crop} రైతులకు పంట రక్షణ చాలా కీలకం. దీని కోసం మా వద్ద అత్యుత్తమ ఉత్పత్తి {sku_name} అందుబాటులో ఉంది. మీ వద్ద దీని స్టాక్ త్వరలో అయిపోయే అవకాశం ఉంది, కాబట్టి రైతుల డిమాండ్‌ను అందుకోవడానికి ఈరోజే మీ ఆర్డర్‌ను నమోదు చేసుకోండి.",
+        "Marathi": f"नमस्कार! आपल्यासाठी एक महत्त्वाची पीक अपडेट. या आठवड्यात आपल्या भागातील {crop} उत्पादक शेतकऱ्यांसाठी पीक संरक्षण अत्यंत गरजेचे आहे. यासाठी आमच्याकडे सर्वात प्रभावी उत्पादन {sku_name} उपलब्ध आहे. तुमच्या दुकानात याचा साठा संपण्याची शक्यता आहे, तरी शेतकऱ्यांची गरज वेळेत पूर्ण करण्यासाठी आजच आपलीं ऑर्डर नोंदवा.",
+        "English": f"Hello! A quick update for you. This week, growers around your area are at a critical crop protection stage for their {crop}. We highly recommend positioning {sku_name} as the primary solution. Your current inventory for this SKU is low relative to recent sales velocity. Let's place an order today so you don't miss out on seasonal grower demand!"
+    }
+    
+    pitch_text = templates.get(lang, templates["English"])
+    translation_text = templates["English"] if lang != "English" else None
+    
+    return PitchResp(
+        pitch=pitch_text,
+        translation=translation_text,
+        source="template"
+    )
 
 
 @app.get("/anomalies")
