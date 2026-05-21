@@ -60,19 +60,23 @@ state = _State()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log.info("Loading models and data into memory...")
-    state.scorer = PriorityScorer()  # rule-based only
+    # Load parquet frames ONCE and share with both scorers (saves ~2x memory
+    # since each scorer used to load its own copy of features_master).
+    state.master = _load_parquet_low_mem(PROC / "features_master.parquet")
+    state.dim_retailers = _load_parquet_low_mem(PROC / "dim_retailers.parquet")
+    state.dim_reps = _load_parquet_low_mem(PROC / "dim_reps.parquet")
+    state.scorer = PriorityScorer(master=state.master, dim_retailers=state.dim_retailers)
     try:
         conv = ConversionModel()
-        state.scorer_with_ml = PriorityScorer(conversion_model=conv)
+        state.scorer_with_ml = PriorityScorer(
+            conversion_model=conv, master=state.master, dim_retailers=state.dim_retailers
+        )
         log.info("Loaded conversion model - ML-enhanced scoring available.")
     except FileNotFoundError:
         log.warning("Conversion model not found, ML-enhanced scoring disabled.")
         state.scorer_with_ml = state.scorer
     with open(ART / "anomalies.json") as f:
         state.anomalies = json.load(f)
-    state.master = _load_parquet_low_mem(PROC / "features_master.parquet")
-    state.dim_retailers = _load_parquet_low_mem(PROC / "dim_retailers.parquet")
-    state.dim_reps = _load_parquet_low_mem(PROC / "dim_reps.parquet")
     _init_outcomes_db()
     log.info(f"Ready. {len(state.master):,} feature rows, {len(state.anomalies):,} anomalies.")
     yield
